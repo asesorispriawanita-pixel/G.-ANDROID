@@ -117,7 +117,7 @@ public class MainActivity extends AppCompatActivity {
         "\nKontak: "+ok(Manifest.permission.READ_CONTACTS)+
         "\nTelepon: "+ok(Manifest.permission.READ_PHONE_STATE)+
         "\nSensor tubuh: "+ok(Manifest.permission.BODY_SENSORS)+
-        "\nNotifikasi: "+(Build.VERSION.SDK_INT<33||ok(Manifest.permission.POST_NOTIFICATIONS));
+        "\nNotifikasi: "+(Build.VERSION.SDK_INT<33?"DIIZINKAN":ok(Manifest.permission.POST_NOTIFICATIONS));
     }
     String ok(String p){return checkSelfPermission(p)==PackageManager.PERMISSION_GRANTED?"DIIZINKAN":"DITOLAK";}
 
