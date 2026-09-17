@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "602572669357",
+    "firebase_url": "https://meme-project-cab7f-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "meme-project-cab7f",
+    "storage_bucket": "meme-project-cab7f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:602572669357:android:33d730547e172712292124",
+        "android_client_info": {
+          "package_name": "com.gpssensor.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "602572669357-6jcncjqt4caodrqadnlnihrjo32ugqke.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD_T3hTYRV4f6VYzJvIHYuwA0TmybqswEc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "602572669357-6jcncjqt4caodrqadnlnihrjo32ugqke.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
