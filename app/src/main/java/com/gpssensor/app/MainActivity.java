@@ -1,71 +1,93 @@
 package com.gpssensor.app;
 
 import android.Manifest;
-import android.app.*;
+import android.app.AlertDialog;
 import android.app.usage.UsageStats;
 import android.app.usage.UsageStatsManager;
-import android.content.*;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.hardware.*;
+import android.hardware.Sensor;
+import android.hardware.SensorManager;
 import android.net.Uri;
-import android.os.*;
+import android.os.Build;
+import android.os.Bundle;
 import android.provider.Settings;
-import android.view.*;
-import android.widget.*;
+import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.database.*;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
 
-    static final int REQ = 100;
+    private static final int REQ = 100;
 
-    FirebaseDatabase db;
-    FirebaseAuth auth;
+    private static final String DB_URL =
+            "https://meme-project-cab7f-default-rtdb.asia-southeast1.firebasedatabase.app/";
 
-    String role = "ADMIN";
-    String target = "target1";
+    private FirebaseDatabase db;
+    private FirebaseAuth auth;
 
-    LinearLayout box;
-    TextView status;
+    private String role = "ADMIN";
+    private String target = "target1";
+
+    private LinearLayout box;
+    private TextView status;
 
     @Override
-    protected void onCreate(Bundle b) {
-        super.onCreate(b);
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
 
-        FirebaseApp.initializeApp(this);
+        try {
+            FirebaseApp.initializeApp(this);
+        } catch (Exception ignored) {
+        }
 
         auth = FirebaseAuth.getInstance();
-
-        db = FirebaseDatabase.getInstance(
-                "https://meme-project-cab7f-default-rtdb.asia-southeast1.firebasedatabase.app/"
-        );
+        db = FirebaseDatabase.getInstance(DB_URL);
 
         showRole();
     }
 
-    TextView tv(String s) {
+    // =========================================================
+    // KOMPONEN UI
+    // =========================================================
+
+    private TextView tv(String text) {
         TextView t = new TextView(this);
-        t.setText(s);
+        t.setText(text);
         t.setTextSize(16);
         t.setPadding(20, 16, 20, 16);
         return t;
     }
 
-    Button btn(String s, View.OnClickListener l) {
+    private Button btn(String text, View.OnClickListener listener) {
         Button b = new Button(this);
-        b.setText(s);
-        b.setOnClickListener(l);
+        b.setText(text);
+        b.setOnClickListener(listener);
         return b;
     }
 
-    void base(String title) {
-        ScrollView sv = new ScrollView(this);
+    private void base(String title) {
+        ScrollView scroll = new ScrollView(this);
 
         box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
@@ -73,68 +95,72 @@ public class MainActivity extends AppCompatActivity {
 
         box.addView(tv(title));
 
-        sv.addView(box);
-
-        setContentView(sv);
+        scroll.addView(box);
+        setContentView(scroll);
     }
 
     // =========================================================
     // PILIH PERAN
     // =========================================================
 
-    void showRole() {
+    private void showRole() {
 
         base("GPS SENSOR FAMILY\n\nPilih peran");
 
-        box.addView(
-                btn("ADMIN", v -> {
-                    role = "ADMIN";
-                    showAdmin();
-                })
-        );
+        box.addView(btn("ADMIN", new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                role = "ADMIN";
+                showAdmin();
+            }
+        }));
 
-        box.addView(
-                btn("TARGET 1", v -> {
-                    role = "TARGET";
-                    target = "target1";
-                    showTarget();
-                })
-        );
+        box.addView(btn("TARGET 1", new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                role = "TARGET";
+                target = "target1";
+                showTarget();
+            }
+        }));
 
-        box.addView(
-                btn("TARGET 2", v -> {
-                    role = "TARGET";
-                    target = "target2";
-                    showTarget();
-                })
-        );
+        box.addView(btn("TARGET 2", new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                role = "TARGET";
+                target = "target2";
+                showTarget();
+            }
+        }));
 
-        box.addView(
-                btn("TARGET 3", v -> {
-                    role = "TARGET";
-                    target = "target3";
-                    showTarget();
-                })
-        );
+        box.addView(btn("TARGET 3", new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                role = "TARGET";
+                target = "target3";
+                showTarget();
+            }
+        }));
     }
 
     // =========================================================
-    // FIREBASE LOGIN
+    // FIREBASE AUTH
     // =========================================================
 
-    void ensureAuth(Runnable r) {
+    private void ensureAuth(final Runnable action) {
 
         if (auth.getCurrentUser() != null) {
-            r.run();
+            action.run();
             return;
         }
 
         auth.signInAnonymously()
-                .addOnSuccessListener(x -> r.run())
-                .addOnFailureListener(e ->
+                .addOnSuccessListener(result -> action.run())
+                .addOnFailureListener(error ->
                         Toast.makeText(
-                                this,
-                                "Firebase login gagal:\n" + e.getMessage(),
+                                MainActivity.this,
+                                "Firebase login gagal:\n"
+                                        + error.getMessage(),
                                 Toast.LENGTH_LONG
                         ).show()
                 );
@@ -144,397 +170,569 @@ public class MainActivity extends AppCompatActivity {
     // ADMIN
     // =========================================================
 
-    void showAdmin() {
+    private void showAdmin() {
 
         base("ADMIN\n\nMemantau Target 1, 2 dan 3");
 
         status = tv("Menghubungkan Firebase...");
-
         box.addView(status);
 
-        box.addView(
-                btn("Segarkan", v -> listenTargets())
-        );
+        box.addView(btn("Segarkan", new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                listenTargets();
+            }
+        }));
 
-        box.addView(
-                btn("Kembali pilih peran", v -> showRole())
-        );
+        box.addView(btn("Kembali pilih peran", new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                showRole();
+            }
+        }));
 
         listenTargets();
     }
 
-    void listenTargets() {
+    private void listenTargets() {
 
-        ensureAuth(() -> {
+        ensureAuth(new Runnable() {
+            @Override
+            public void run() {
 
-            db.getReference("devices")
-                    .addValueEventListener(new ValueEventListener() {
+                DatabaseReference reference =
+                        db.getReference("devices");
 
-                        @Override
-                        public void onDataChange(DataSnapshot s) {
+                reference.addValueEventListener(
+                        new ValueEventListener() {
 
-                            StringBuilder x =
-                                    new StringBuilder("STATUS TARGET\n\n");
+                            @Override
+                            public void onDataChange(
+                                    DataSnapshot snapshot) {
 
-                            for (int i = 1; i <= 3; i++) {
+                                StringBuilder text =
+                                        new StringBuilder();
 
-                                String tName = "target" + i;
+                                text.append(
+                                        "STATUS TARGET\n\n"
+                                );
 
-                                DataSnapshot d =
-                                        s.child(tName);
+                                for (int i = 1; i <= 3; i++) {
 
-                                String nama =
-                                        d.child("name")
-                                                .getValue(String.class);
+                                    String device =
+                                            "target" + i;
 
-                                Object lat =
-                                        d.child("location")
-                                                .child("latitude")
-                                                .getValue();
+                                    DataSnapshot data =
+                                            snapshot.child(device);
 
-                                Object lon =
-                                        d.child("location")
-                                                .child("longitude")
-                                                .getValue();
+                                    String name =
+                                            data.child("name")
+                                                    .getValue(
+                                                            String.class
+                                                    );
 
-                                Object waktu =
-                                        d.child("location")
-                                                .child("time")
-                                                .getValue();
+                                    Object latitude =
+                                            data.child("location")
+                                                    .child("latitude")
+                                                    .getValue();
 
-                                String izin =
-                                        d.child("permissions")
-                                                .getValue(String.class);
+                                    Object longitude =
+                                            data.child("location")
+                                                    .child("longitude")
+                                                    .getValue();
 
-                                x.append("TARGET ")
-                                        .append(i)
-                                        .append("\n");
+                                    Object time =
+                                            data.child("location")
+                                                    .child("time")
+                                                    .getValue();
 
-                                x.append("Nama: ")
-                                        .append(nama == null ? "-" : nama)
-                                        .append("\n");
+                                    String permissions =
+                                            data.child("permissions")
+                                                    .getValue(
+                                                            String.class
+                                                    );
 
-                                x.append("GPS: ")
-                                        .append(lat == null ? "-" : lat)
-                                        .append(", ")
-                                        .append(lon == null ? "-" : lon)
-                                        .append("\n");
+                                    text.append(
+                                            "TARGET "
+                                    ).append(i).append("\n");
 
-                                x.append("Update: ")
-                                        .append(waktu == null ? "-" : waktu)
-                                        .append("\n");
+                                    text.append(
+                                            "Nama: "
+                                    ).append(
+                                            name == null
+                                                    ? "-"
+                                                    : name
+                                    ).append("\n");
 
-                                x.append("Izin: ")
-                                        .append(izin == null ? "-" : izin)
-                                        .append("\n");
+                                    text.append(
+                                            "GPS: "
+                                    ).append(
+                                            latitude == null
+                                                    ? "-"
+                                                    : latitude
+                                    ).append(", ").append(
+                                            longitude == null
+                                                    ? "-"
+                                                    : longitude
+                                    ).append("\n");
 
-                                x.append("\n");
+                                    text.append(
+                                            "Update: "
+                                    ).append(
+                                            time == null
+                                                    ? "-"
+                                                    : time
+                                    ).append("\n");
 
-                                // Tombol Google Maps jika koordinat tersedia
-                                if (lat != null && lon != null) {
+                                    text.append(
+                                            "Izin: "
+                                    ).append(
+                                            permissions == null
+                                                    ? "-"
+                                                    : permissions
+                                    ).append("\n\n");
 
-                                    final String mapLat =
-                                            String.valueOf(lat);
+                                    if (latitude != null
+                                            && longitude != null) {
 
-                                    final String mapLon =
-                                            String.valueOf(lon);
-
-                                    Button mapButton =
-                                            new Button(this);
-
-                                    mapButton.setText(
-                                            "Buka TARGET "
-                                                    + i
-                                                    + " di Google Maps"
-                                    );
-
-                                    mapButton.setOnClickListener(v -> {
-
-                                        Uri uri = Uri.parse(
-                                                "geo:"
-                                                        + mapLat
-                                                        + ","
-                                                        + mapLon
-                                                        + "?q="
-                                                        + mapLat
-                                                        + ","
-                                                        + mapLon
+                                        addMapButton(
+                                                i,
+                                                latitude.toString(),
+                                                longitude.toString()
                                         );
-
-                                        Intent intent =
-                                                new Intent(
-                                                        Intent.ACTION_VIEW,
-                                                        uri
-                                                );
-
-                                        try {
-
-                                            startActivity(intent);
-
-                                        } catch (Exception e) {
-
-                                            Toast.makeText(
-                                                    this,
-                                                    "Google Maps tidak tersedia",
-                                                    Toast.LENGTH_LONG
-                                            ).show();
-                                        }
-                                    });
-
-                                    box.addView(mapButton);
+                                    }
                                 }
+
+                                status.setText(
+                                        text.toString()
+                                );
                             }
 
-                            status.setText(x.toString());
-                        }
+                            @Override
+                            public void onCancelled(
+                                    DatabaseError error) {
 
-                        @Override
-                        public void onCancelled(DatabaseError e) {
-
-                            status.setText(
-                                    "Firebase error:\n"
-                                            + e.getMessage()
-                            );
+                                status.setText(
+                                        "Firebase error:\n"
+                                                + error.getMessage()
+                                );
+                            }
                         }
-                    });
+                );
+            }
         });
+    }
+
+    // =========================================================
+    // GOOGLE MAPS
+    // =========================================================
+
+    private void addMapButton(
+            final int number,
+            final String latitude,
+            final String longitude) {
+
+        Button mapButton =
+                new Button(MainActivity.this);
+
+        mapButton.setText(
+                "Buka TARGET "
+                        + number
+                        + " di Google Maps"
+        );
+
+        mapButton.setOnClickListener(
+                new View.OnClickListener() {
+
+                    @Override
+                    public void onClick(View v) {
+
+                        Uri uri = Uri.parse(
+                                "geo:"
+                                        + latitude
+                                        + ","
+                                        + longitude
+                                        + "?q="
+                                        + latitude
+                                        + ","
+                                        + longitude
+                        );
+
+                        Intent intent =
+                                new Intent(
+                                        Intent.ACTION_VIEW,
+                                        uri
+                                );
+
+                        try {
+
+                            MainActivity.this
+                                    .startActivity(intent);
+
+                        } catch (Exception error) {
+
+                            Toast.makeText(
+                                    MainActivity.this,
+                                    "Aplikasi peta tidak tersedia",
+                                    Toast.LENGTH_LONG
+                            ).show();
+                        }
+                    }
+                }
+        );
+
+        box.addView(mapButton);
     }
 
     // =========================================================
     // TARGET
     // =========================================================
 
-    void showTarget() {
+    private void showTarget() {
 
-        base("TARGET: " + target.toUpperCase());
+        base(
+                "TARGET: "
+                        + target.toUpperCase()
+        );
 
-        EditText name = new EditText(this);
+        final EditText name =
+                new EditText(this);
 
         name.setHint("Nama perangkat");
 
         box.addView(name);
 
-        TextView p = tv(permissionSummary());
+        final TextView permissionText =
+                tv(permissionSummary());
 
-        box.addView(p);
-
-        // PERBAIKAN:
-        // sebelumnya memanggil requestPermissions() tanpa parameter.
-        // sekarang memanggil method kita sendiri.
+        box.addView(permissionText);
 
         box.addView(
-                btn("Minta izin GPS + Sensor", v -> {
+                btn(
+                        "Minta izin GPS + Sensor",
+                        new View.OnClickListener() {
 
-                    requestAppPermissions();
+                            @Override
+                            public void onClick(View v) {
 
-                    p.setText(permissionSummary());
-                })
+                                requestAppPermissions();
+
+                                permissionText.setText(
+                                        permissionSummary()
+                                );
+                            }
+                        }
+                )
         );
 
         box.addView(
                 btn(
                         "Buka Pengaturan Izin Aplikasi",
-                        v -> startActivity(
-                                new Intent(
-                                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        new View.OnClickListener() {
+
+                            @Override
+                            public void onClick(View v) {
+
+                                Intent intent =
+                                        new Intent(
+                                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+                                        );
+
+                                intent.setData(
                                         Uri.parse(
                                                 "package:"
                                                         + getPackageName()
                                         )
-                                )
-                        )
+                                );
+
+                                startActivity(intent);
+                            }
+                        }
                 )
         );
 
         box.addView(
                 btn(
                         "Buka Usage Access",
-                        v -> startActivity(
-                                new Intent(
-                                        Settings.ACTION_USAGE_ACCESS_SETTINGS
-                                )
-                        )
+                        new View.OnClickListener() {
+
+                            @Override
+                            public void onClick(View v) {
+
+                                startActivity(
+                                        new Intent(
+                                                Settings.ACTION_USAGE_ACCESS_SETTINGS
+                                        )
+                                );
+                            }
+                        }
                 )
         );
 
         box.addView(
                 btn(
                         "Buka Notification Access",
-                        v -> startActivity(
-                                new Intent(
-                                        "android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"
-                                )
-                        )
+                        new View.OnClickListener() {
+
+                            @Override
+                            public void onClick(View v) {
+
+                                try {
+
+                                    startActivity(
+                                            new Intent(
+                                                    "android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"
+                                            )
+                                    );
+
+                                } catch (Exception error) {
+
+                                    Toast.makeText(
+                                            MainActivity.this,
+                                            "Pengaturan Notification Access tidak tersedia",
+                                            Toast.LENGTH_LONG
+                                    ).show();
+                                }
+                            }
+                        }
                 )
         );
 
         box.addView(
                 btn(
                         "Tampilkan Sensor Perangkat",
-                        v -> showSensors()
+                        new View.OnClickListener() {
+
+                            @Override
+                            public void onClick(View v) {
+                                showSensors();
+                            }
+                        }
                 )
         );
 
         box.addView(
                 btn(
                         "Kirim Status ke Firebase",
-                        v -> saveStatus(
-                                name.getText().toString()
-                        )
+                        new View.OnClickListener() {
+
+                            @Override
+                            public void onClick(View v) {
+
+                                saveStatus(
+                                        name.getText()
+                                                .toString()
+                                );
+                            }
+                        }
                 )
         );
 
         box.addView(
                 btn(
                         "Mulai GPS Realtime",
-                        v -> startGps(
-                                name.getText().toString()
-                        )
+                        new View.OnClickListener() {
+
+                            @Override
+                            public void onClick(View v) {
+
+                                startGps(
+                                        name.getText()
+                                                .toString()
+                                );
+                            }
+                        }
                 )
         );
 
         box.addView(
                 btn(
                         "Hentikan GPS",
-                        v -> stopGps()
+                        new View.OnClickListener() {
+
+                            @Override
+                            public void onClick(View v) {
+                                stopGps();
+                            }
+                        }
                 )
         );
 
         box.addView(
                 btn(
                         "Uji Kamera (dengan izin)",
-                        v -> cameraPermission()
+                        new View.OnClickListener() {
+
+                            @Override
+                            public void onClick(View v) {
+                                cameraPermission();
+                            }
+                        }
                 )
         );
 
         box.addView(
                 btn(
                         "Uji Mikrofon (dengan izin)",
-                        v -> micPermission()
+                        new View.OnClickListener() {
+
+                            @Override
+                            public void onClick(View v) {
+                                micPermission();
+                            }
+                        }
                 )
         );
 
         box.addView(
                 btn(
                         "Baca aktivitas aplikasi 1 jam",
-                        v -> readUsage()
+                        new View.OnClickListener() {
+
+                            @Override
+                            public void onClick(View v) {
+                                readUsage();
+                            }
+                        }
                 )
         );
 
         box.addView(
                 btn(
                         "Kembali pilih peran",
-                        v -> showRole()
+                        new View.OnClickListener() {
+
+                            @Override
+                            public void onClick(View v) {
+                                showRole();
+                            }
+                        }
                 )
         );
     }
 
     // =========================================================
-    // RINGKASAN IZIN
+    // PERMISSION SUMMARY
     // =========================================================
 
-    String permissionSummary() {
+    private String permissionSummary() {
+
+        String notification;
+
+        if (Build.VERSION.SDK_INT < 33) {
+            notification = "DIIZINKAN";
+        } else {
+            notification =
+                    permissionState(
+                            Manifest.permission.POST_NOTIFICATIONS
+                    );
+        }
 
         return "IZIN ANDROID\n"
                 + "GPS: "
-                + ok(Manifest.permission.ACCESS_FINE_LOCATION)
-
+                + permissionState(
+                        Manifest.permission.ACCESS_FINE_LOCATION
+                )
                 + "\nKamera: "
-                + ok(Manifest.permission.CAMERA)
-
+                + permissionState(
+                        Manifest.permission.CAMERA
+                )
                 + "\nMikrofon: "
-                + ok(Manifest.permission.RECORD_AUDIO)
-
+                + permissionState(
+                        Manifest.permission.RECORD_AUDIO
+                )
                 + "\nKontak: "
-                + ok(Manifest.permission.READ_CONTACTS)
-
+                + permissionState(
+                        Manifest.permission.READ_CONTACTS
+                )
                 + "\nTelepon: "
-                + ok(Manifest.permission.READ_PHONE_STATE)
-
+                + permissionState(
+                        Manifest.permission.READ_PHONE_STATE
+                )
                 + "\nSensor tubuh: "
-                + ok(Manifest.permission.BODY_SENSORS)
-
+                + permissionState(
+                        Manifest.permission.BODY_SENSORS
+                )
                 + "\nNotifikasi: "
-                + (
-                    Build.VERSION.SDK_INT < 33
-                    ? "DIIZINKAN"
-                    : ok(Manifest.permission.POST_NOTIFICATIONS)
-                );
+                + notification;
     }
 
-    String ok(String p) {
+    private String permissionState(String permission) {
 
         if (Build.VERSION.SDK_INT < 23) {
             return "DIIZINKAN";
         }
 
-        return checkSelfPermission(p)
+        return checkSelfPermission(permission)
                 == PackageManager.PERMISSION_GRANTED
                 ? "DIIZINKAN"
                 : "DITOLAK";
     }
 
     // =========================================================
-    // REQUEST PERMISSION
+    // REQUEST PERMISSIONS
     // =========================================================
 
-    void requestAppPermissions() {
+    private void requestAppPermissions() {
 
         ArrayList<String> permissions =
                 new ArrayList<>();
 
-        if (Build.VERSION.SDK_INT >= 23) {
+        addPermission(
+                permissions,
+                Manifest.permission.ACCESS_FINE_LOCATION
+        );
 
-            addPermissionIfNeeded(
-                    permissions,
-                    Manifest.permission.ACCESS_FINE_LOCATION
-            );
+        addPermission(
+                permissions,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+        );
 
-            addPermissionIfNeeded(
-                    permissions,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-            );
+        addPermission(
+                permissions,
+                Manifest.permission.CAMERA
+        );
 
-            addPermissionIfNeeded(
-                    permissions,
-                    Manifest.permission.CAMERA
-            );
+        addPermission(
+                permissions,
+                Manifest.permission.RECORD_AUDIO
+        );
 
-            addPermissionIfNeeded(
-                    permissions,
-                    Manifest.permission.RECORD_AUDIO
-            );
+        addPermission(
+                permissions,
+                Manifest.permission.READ_CONTACTS
+        );
 
-            addPermissionIfNeeded(
-                    permissions,
-                    Manifest.permission.READ_CONTACTS
-            );
+        addPermission(
+                permissions,
+                Manifest.permission.READ_PHONE_STATE
+        );
 
-            addPermissionIfNeeded(
-                    permissions,
-                    Manifest.permission.READ_PHONE_STATE
-            );
-
-            // BODY_SENSORS hanya relevan pada perangkat yang mendukungnya
-            addPermissionIfNeeded(
-                    permissions,
-                    Manifest.permission.BODY_SENSORS
-            );
-        }
+        addPermission(
+                permissions,
+                Manifest.permission.BODY_SENSORS
+        );
 
         if (Build.VERSION.SDK_INT >= 33) {
 
-            addPermissionIfNeeded(
+            addPermission(
                     permissions,
                     Manifest.permission.POST_NOTIFICATIONS
             );
         }
 
-        if (!permissions.isEmpty()) {
+        if (permissions.isEmpty()) {
 
-            // PENTING:
-            // Ini adalah Android API requestPermissions(),
-            // bukan requestAppPermissions().
+            Toast.makeText(
+                    MainActivity.this,
+                    "Izin utama sudah diberikan",
+                    Toast.LENGTH_SHORT
+            ).show();
+
+        } else {
+
+            // Ini adalah Android requestPermissions().
+            // Bukan pemanggilan ulang requestAppPermissions().
 
             requestPermissions(
                     permissions.toArray(
@@ -542,39 +740,26 @@ public class MainActivity extends AppCompatActivity {
                     ),
                     REQ
             );
-
-        } else {
-
-            Toast.makeText(
-                    this,
-                    "Izin utama sudah diberikan",
-                    Toast.LENGTH_SHORT
-            ).show();
         }
     }
 
-    void addPermissionIfNeeded(
+    private void addPermission(
             ArrayList<String> list,
-            String permission
-    ) {
+            String permission) {
 
-        if (checkSelfPermission(permission)
+        if (Build.VERSION.SDK_INT >= 23
+                && checkSelfPermission(permission)
                 != PackageManager.PERMISSION_GRANTED) {
 
             list.add(permission);
         }
     }
 
-    // =========================================================
-    // HASIL PERMISSION
-    // =========================================================
-
     @Override
     public void onRequestPermissionsResult(
             int requestCode,
             String[] permissions,
-            int[] grantResults
-    ) {
+            int[] grantResults) {
 
         super.onRequestPermissionsResult(
                 requestCode,
@@ -585,8 +770,8 @@ public class MainActivity extends AppCompatActivity {
         if (requestCode == REQ) {
 
             Toast.makeText(
-                    this,
-                    "Permintaan izin selesai. Periksa status izin di layar.",
+                    MainActivity.this,
+                    "Permintaan izin selesai",
                     Toast.LENGTH_SHORT
             ).show();
         }
@@ -596,60 +781,69 @@ public class MainActivity extends AppCompatActivity {
     // SIMPAN STATUS
     // =========================================================
 
-    void saveStatus(String name) {
+    private void saveStatus(String deviceName) {
 
-        ensureAuth(() -> {
+        ensureAuth(new Runnable() {
 
-            Map<String, Object> m =
-                    new HashMap<>();
+            @Override
+            public void run() {
 
-            m.put(
-                    "name",
-                    name.trim().isEmpty()
-                            ? target
-                            : name.trim()
-            );
+                Map<String, Object> data =
+                        new HashMap<>();
 
-            m.put(
-                    "role",
-                    target
-            );
+                String finalName =
+                        deviceName.trim();
 
-            m.put(
-                    "permissions",
-                    permissionSummary()
-            );
+                if (finalName.isEmpty()) {
+                    finalName = target;
+                }
 
-            m.put(
-                    "battery",
-                    getBattery()
-            );
+                data.put(
+                        "name",
+                        finalName
+                );
 
-            m.put(
-                    "updated",
-                    System.currentTimeMillis()
-            );
+                data.put(
+                        "role",
+                        target
+                );
 
-            db.getReference("devices")
-                    .child(target)
-                    .updateChildren(m)
-                    .addOnSuccessListener(v ->
+                data.put(
+                        "permissions",
+                        permissionSummary()
+                );
 
-                            Toast.makeText(
-                                    this,
-                                    "Status tersimpan",
-                                    Toast.LENGTH_SHORT
-                            ).show()
-                    )
-                    .addOnFailureListener(e ->
+                data.put(
+                        "battery",
+                        getBattery()
+                );
 
-                            Toast.makeText(
-                                    this,
-                                    "Gagal menyimpan:\n"
-                                            + e.getMessage(),
-                                    Toast.LENGTH_LONG
-                            ).show()
-                    );
+                data.put(
+                        "updated",
+                        System.currentTimeMillis()
+                );
+
+                db.getReference("devices")
+                        .child(target)
+                        .updateChildren(data)
+                        .addOnSuccessListener(
+                                result ->
+                                        Toast.makeText(
+                                                MainActivity.this,
+                                                "Status tersimpan",
+                                                Toast.LENGTH_SHORT
+                                        ).show()
+                        )
+                        .addOnFailureListener(
+                                error ->
+                                        Toast.makeText(
+                                                MainActivity.this,
+                                                "Gagal menyimpan:\n"
+                                                        + error.getMessage(),
+                                                Toast.LENGTH_LONG
+                                        ).show()
+                        );
+            }
         });
     }
 
@@ -657,9 +851,9 @@ public class MainActivity extends AppCompatActivity {
     // BATTERY
     // =========================================================
 
-    String getBattery() {
+    private String getBattery() {
 
-        Intent i =
+        Intent batteryIntent =
                 registerReceiver(
                         null,
                         new IntentFilter(
@@ -667,80 +861,90 @@ public class MainActivity extends AppCompatActivity {
                         )
                 );
 
-        if (i == null) {
+        if (batteryIntent == null) {
             return "?";
         }
 
-        return i.getIntExtra(
-                "level",
-                -1
-        ) + "%";
+        int level =
+                batteryIntent.getIntExtra(
+                        "level",
+                        -1
+                );
+
+        return level + "%";
     }
 
     // =========================================================
-    // GPS REALTIME
+    // START GPS
     // =========================================================
 
-    void startGps(String name) {
+    private void startGps(String deviceName) {
 
-        ensureAuth(() -> {
+        if (Build.VERSION.SDK_INT >= 23
+                && checkSelfPermission(
+                        Manifest.permission.ACCESS_FINE_LOCATION
+                ) != PackageManager.PERMISSION_GRANTED) {
 
-            saveStatus(name);
+            Toast.makeText(
+                    MainActivity.this,
+                    "Izinkan GPS dahulu",
+                    Toast.LENGTH_LONG
+            ).show();
 
-            if (Build.VERSION.SDK_INT >= 23
-                    && checkSelfPermission(
-                            Manifest.permission.ACCESS_FINE_LOCATION
-                    ) != PackageManager.PERMISSION_GRANTED) {
+            requestAppPermissions();
+            return;
+        }
 
-                Toast.makeText(
-                        this,
-                        "Izinkan GPS dahulu",
-                        Toast.LENGTH_LONG
-                ).show();
+        saveStatus(deviceName);
 
-                return;
-            }
+        Intent intent =
+                new Intent(
+                        MainActivity.this,
+                        GpsService.class
+                );
 
-            Intent i =
-                    new Intent(
-                            this,
-                            GpsService.class
-                    );
+        intent.putExtra(
+                "target",
+                target
+        );
 
-            i.putExtra(
-                    "target",
-                    target
-            );
+        try {
 
             if (Build.VERSION.SDK_INT >= 26) {
-
-                startForegroundService(i);
-
+                startForegroundService(intent);
             } else {
-
-                startService(i);
+                startService(intent);
             }
 
             Toast.makeText(
-                    this,
+                    MainActivity.this,
                     "GPS realtime dimulai untuk "
                             + target,
                     Toast.LENGTH_SHORT
             ).show();
-        });
+
+        } catch (Exception error) {
+
+            Toast.makeText(
+                    MainActivity.this,
+                    "Gagal memulai GPS:\n"
+                            + error.getMessage(),
+                    Toast.LENGTH_LONG
+            ).show();
+        }
     }
 
-    void stopGps() {
+    private void stopGps() {
 
         stopService(
                 new Intent(
-                        this,
+                        MainActivity.this,
                         GpsService.class
                 )
         );
 
         Toast.makeText(
-                this,
+                MainActivity.this,
                 "GPS realtime dihentikan",
                 Toast.LENGTH_SHORT
         ).show();
@@ -750,14 +954,15 @@ public class MainActivity extends AppCompatActivity {
     // KAMERA
     // =========================================================
 
-    void cameraPermission() {
+    private void cameraPermission() {
 
-        if (ok(Manifest.permission.CAMERA)
-                .equals("DIIZINKAN")) {
+        if (permissionState(
+                Manifest.permission.CAMERA
+        ).equals("DIIZINKAN")) {
 
             Toast.makeText(
-                    this,
-                    "Kamera diizinkan.\n"
+                    MainActivity.this,
+                    "Kamera sudah diizinkan.\n"
                             + "Aplikasi tidak menyalakan kamera "
                             + "secara diam-diam.",
                     Toast.LENGTH_LONG
@@ -778,14 +983,15 @@ public class MainActivity extends AppCompatActivity {
     // MICROPHONE
     // =========================================================
 
-    void micPermission() {
+    private void micPermission() {
 
-        if (ok(Manifest.permission.RECORD_AUDIO)
-                .equals("DIIZINKAN")) {
+        if (permissionState(
+                Manifest.permission.RECORD_AUDIO
+        ).equals("DIIZINKAN")) {
 
             Toast.makeText(
-                    this,
-                    "Mikrofon diizinkan.\n"
+                    MainActivity.this,
+                    "Mikrofon sudah diizinkan.\n"
                             + "Penggunaan tetap harus terlihat "
                             + "oleh pemakai.",
                     Toast.LENGTH_LONG
@@ -806,41 +1012,58 @@ public class MainActivity extends AppCompatActivity {
     // SENSOR
     // =========================================================
 
-    void showSensors() {
+    private void showSensors() {
 
         base("SENSOR YANG TERSEDIA");
 
-        SensorManager sm =
+        SensorManager sensorManager =
                 (SensorManager)
                         getSystemService(
                                 SENSOR_SERVICE
                         );
 
-        if (sm == null) {
+        if (sensorManager == null) {
 
             box.addView(
-                    tv("Sensor Manager tidak tersedia.")
+                    tv("Sensor perangkat tidak tersedia.")
+            );
+
+            box.addView(
+                    btn(
+                            "Kembali",
+                            v -> showTarget()
+                    )
             );
 
             return;
         }
 
-        List<Sensor> list =
-                sm.getSensorList(
+        List<Sensor> sensors =
+                sensorManager.getSensorList(
                         Sensor.TYPE_ALL
                 );
 
-        for (Sensor s : list) {
+        if (sensors.isEmpty()) {
 
             box.addView(
-                    tv(
-                            s.getName()
-                                    + "\nVendor: "
-                                    + s.getVendor()
-                                    + "\nType: "
-                                    + s.getType()
-                    )
+                    tv("Tidak ada sensor yang terdeteksi.")
             );
+
+        } else {
+
+            for (Sensor sensor : sensors) {
+
+                String info =
+                        sensor.getName()
+                                + "\nVendor: "
+                                + sensor.getVendor()
+                                + "\nType: "
+                                + sensor.getType();
+
+                box.addView(
+                        tv(info)
+                );
+            }
         }
 
         box.addView(
@@ -855,12 +1078,12 @@ public class MainActivity extends AppCompatActivity {
     // USAGE ACCESS
     // =========================================================
 
-    void readUsage() {
+    private void readUsage() {
 
         if (Build.VERSION.SDK_INT < 21) {
 
             Toast.makeText(
-                    this,
+                    MainActivity.this,
                     "Tidak didukung",
                     Toast.LENGTH_SHORT
             ).show();
@@ -868,17 +1091,17 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        UsageStatsManager u =
+        UsageStatsManager manager =
                 (UsageStatsManager)
                         getSystemService(
                                 USAGE_STATS_SERVICE
                         );
 
-        if (u == null) {
+        if (manager == null) {
 
             Toast.makeText(
-                    this,
-                    "UsageStats tidak tersedia",
+                    MainActivity.this,
+                    "Usage Access tidak tersedia",
                     Toast.LENGTH_SHORT
             ).show();
 
@@ -888,42 +1111,57 @@ public class MainActivity extends AppCompatActivity {
         long now =
                 System.currentTimeMillis();
 
-        List<UsageStats> l =
-                u.queryUsageStats(
+        List<UsageStats> list =
+                manager.queryUsageStats(
                         UsageStatsManager.INTERVAL_DAILY,
                         now - 3600000,
                         now
                 );
 
-        StringBuilder s =
-                new StringBuilder(
-                        "AKTIVITAS APLIKASI 1 JAM\n\n"
+        StringBuilder text =
+                new StringBuilder();
+
+        text.append(
+                "AKTIVITAS APLIKASI 1 JAM\n\n"
+        );
+
+        for (UsageStats usage : list) {
+
+            if (usage.getTotalTimeInForeground()
+                    > 0) {
+
+                text.append(
+                        usage.getPackageName()
                 );
 
-        for (UsageStats x : l) {
+                text.append(" — ");
 
-            if (x.getTotalTimeInForeground() > 0) {
-
-                s.append(
-                        x.getPackageName()
-                )
-                .append(" — ")
-                .append(
-                        x.getTotalTimeInForeground()
+                text.append(
+                        usage.getTotalTimeInForeground()
                                 / 1000
-                )
-                .append(" detik\n");
+                );
+
+                text.append(
+                        " detik\n"
+                );
             }
         }
 
-        new AlertDialog.Builder(this)
-                .setMessage(
-                        s.length() > 30
-                                ? s.toString()
-                                : "Belum ada data.\n\n"
-                                + "Pastikan Usage Access "
-                                + "sudah diizinkan."
-                )
+        String message;
+
+        if (text.length() > 30) {
+            message = text.toString();
+        } else {
+            message =
+                    "Belum ada data.\n\n"
+                            + "Pastikan Usage Access "
+                            + "sudah diizinkan.";
+        }
+
+        new AlertDialog.Builder(
+                MainActivity.this
+        )
+                .setMessage(message)
                 .setPositiveButton(
                         "OK",
                         null
