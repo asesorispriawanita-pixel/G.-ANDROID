@@ -121,17 +121,66 @@ public class MainActivity extends AppCompatActivity {
     }
     String ok(String p){return checkSelfPermission(p)==PackageManager.PERMISSION_GRANTED?"DIIZINKAN":"DITOLAK";}
 
-    void requestPermissions(){
-        ArrayList<String> a=new ArrayList<>();
-        String[] ps={Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION,
-            Manifest.permission.CAMERA,Manifest.permission.RECORD_AUDIO,Manifest.permission.READ_CONTACTS,
-            Manifest.permission.READ_PHONE_STATE,Manifest.permission.BODY_SENSORS};
-        for(String p:ps) if(Build.VERSION.SDK_INT>=23 && checkSelfPermission(p)!=PackageManager.PERMISSION_GRANTED) a.add(p);
-        if(Build.VERSION.SDK_INT>=33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)
-            a.add(Manifest.permission.POST_NOTIFICATIONS);
-        if(!a.isEmpty()) requestPermissions(a.toArray(new String[0]),REQ);
-        else Toast.makeText(this,"Izin utama sudah diberikan",Toast.LENGTH_SHORT).show();
+    void requestAppPermissions() {
+    ArrayList<String> permissions = new ArrayList<>();
+
+    if (Build.VERSION.SDK_INT >= 23) {
+        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            permissions.add(Manifest.permission.ACCESS_FINE_LOCATION);
+        }
+
+        if (checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            permissions.add(Manifest.permission.ACCESS_COARSE_LOCATION);
+        }
+
+        if (checkSelfPermission(Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED) {
+            permissions.add(Manifest.permission.CAMERA);
+        }
+
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED) {
+            permissions.add(Manifest.permission.RECORD_AUDIO);
+        }
+
+        if (checkSelfPermission(Manifest.permission.READ_CONTACTS)
+                != PackageManager.PERMISSION_GRANTED) {
+            permissions.add(Manifest.permission.READ_CONTACTS);
+        }
+
+        if (checkSelfPermission(Manifest.permission.READ_PHONE_STATE)
+                != PackageManager.PERMISSION_GRANTED) {
+            permissions.add(Manifest.permission.READ_PHONE_STATE);
+        }
+
+        if (checkSelfPermission(Manifest.permission.BODY_SENSORS)
+                != PackageManager.PERMISSION_GRANTED) {
+            permissions.add(Manifest.permission.BODY_SENSORS);
+        }
     }
+
+    if (Build.VERSION.SDK_INT >= 33) {
+        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS);
+        }
+    }
+
+    if (!permissions.isEmpty()) {
+        requestAppPermissions(
+                permissions.toArray(new String[0]),
+                REQ
+        );
+    } else {
+        Toast.makeText(
+                this,
+                "Izin utama sudah diberikan",
+                Toast.LENGTH_SHORT
+        ).show();
+    }
+}
 
     void saveStatus(String name){
         ensureAuth(()->{
